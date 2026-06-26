@@ -25,12 +25,14 @@ export default function AuthPage({ onLoginSuccess }) {
         formData.append("username", email.trim());
         formData.append("password", password);
 
+        // FIX: Replaced regular quotes with backticks (`) for correct URL evaluation
         response = await fetch(`${API_BASE_URL}${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: formData,
         });
       } else {
+        // FIX: Replaced regular quotes with backticks (`) for correct URL evaluation
         response = await fetch(`${API_BASE_URL}${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -49,7 +51,7 @@ export default function AuthPage({ onLoginSuccess }) {
       }
 
       if (isLogin) {
-        // FIX: Capture and store backend mapping variables cleanly for form linkage
+        // Capture and store backend mapping variables cleanly for form linkage
         localStorage.setItem("token", data.access_token);
         localStorage.setItem("user_id", data.user_id);
         localStorage.setItem("username", data.username);

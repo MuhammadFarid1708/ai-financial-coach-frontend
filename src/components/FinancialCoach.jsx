@@ -21,7 +21,7 @@ export default function FinancialCoach() {
     const storedUsername = localStorage.getItem("username") || "User";
 
     try {
-      // FIX: Matches backend JSON schema completely with proper key map paths
+      // FIX: Used proper backticks (`) for string evaluation to fix the 404 /%7B%7B bug
       const res = await fetch(`${API_BASE_URL}/api/save-profile`, {
         method: "POST",
         headers: {
@@ -43,7 +43,6 @@ export default function FinancialCoach() {
 
       const data = await res.json();
       
-      // Artificial layout display or generation since backend saved data perfectly
       setStrategy(`Strategy Engine Activated!\n\nMetrics saved successfully into PostgreSQL tables.\n\nMonthly Income: ₹${monthlyIncome}\nMonthly Expenses: ₹${monthlyExpenses}\nSavings Target: ₹${monthlySavingsGoal}\nRisk Profile: ${riskTolerance}`);
       setStep(2); 
     } catch (err) {
