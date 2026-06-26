@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "${API_BASE_URL}";
 
 export default function AuthPage({ onLoginSuccess }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -42,13 +43,13 @@ export default function AuthPage({ onLoginSuccess }) {
         formData.append('username', email.trim()); 
         formData.append('password', password);
 
-        response = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+        response = await fetch(`${API_BASE_URL}${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: formData,
         });
       } else {
-        response = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+        response = await fetch(`${API_BASE_URL}${endpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

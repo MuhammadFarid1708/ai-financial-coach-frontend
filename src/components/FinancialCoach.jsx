@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "${API_BASE_URL}";
 
 // Unified inner component to display chart data inline inside a chat bubble
 function SolidPieChart({ chartData }) {
@@ -123,7 +124,7 @@ export default function FinancialCoach() {
   const fetchChatSessions = async () => {
     const userId = localStorage.getItem('userId');
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/sessions/${userId}`);
+      const res = await fetch(`${API_BASE_URL}/api/sessions/${userId}`);
       if (res.ok) {
         const data = await res.json();
         setSessions(data);
@@ -144,7 +145,7 @@ export default function FinancialCoach() {
     setLoading(true);
     try {
       const userId = localStorage.getItem('userId');
-      const res = await fetch(`http://127.0.0.1:8000/history/${userId}/sessions`);
+      const res = await fetch(`${API_BASE_URL}/history/${userId}/sessions`);
       
       if (res.ok) {
         const allInsights = await res.json();
@@ -172,7 +173,7 @@ export default function FinancialCoach() {
     if (!window.confirm("Are you sure you want to permanently delete this financial strategy thread?")) return;
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/sessions/${sessionId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}`, {
         method: 'DELETE'
       });
       
@@ -196,7 +197,7 @@ export default function FinancialCoach() {
     const totalExpenses = parseFloat(monthlyIncome) - parseFloat(savingsGoal);
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/save-profile', {
+      const response = await fetch('${API_BASE_URL}/api/save-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -240,7 +241,7 @@ export default function FinancialCoach() {
     try {
       if (!currentSessionId) {
         const titleText = userPrompt.length > 26 ? userPrompt.substring(0, 24) + "..." : userPrompt;
-        const sessionRes = await fetch('http://127.0.0.1:8000/api/sessions', {
+        const sessionRes = await fetch('${API_BASE_URL}/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: userId, title: titleText })
@@ -253,7 +254,7 @@ export default function FinancialCoach() {
         }
       }
 
-      const response = await fetch('http://127.0.0.1:8000/api/chat', {
+      const response = await fetch('${API_BASE_URL}/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -270,7 +271,7 @@ export default function FinancialCoach() {
 
       setMessages((prev) => [...prev, { sender: 'coach', text: data.strategy, chartData: data.chart_data }]);
 
-      await fetch(`http://127.0.0.1:8000/profile/${userId}/insights`, {
+      await fetch(`${API_BASE_URL}/profile/${userId}/insights`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
