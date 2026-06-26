@@ -1,0 +1,259 @@
+import React, { useState, useEffect } from "react";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
+export default function Dashboard() {
+  const [sessions, setSessions] = useState([]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [inputPrompt, setInputPrompt] = useState("");
+  const [profileMetrics, setProfileMetrics] = useState(null);
+  const [sendingChat, setSendingChat] = useState(false);
+  const [loadingWorkspace, setLoadingWorkspace] = useState(true);
+
+  const storedUserId = localStorage.getItem("user_id");
+
+  useEffect(() => {
+    if (storedUserId) {
+      loadInitialWorkspace();
+    }
+  }, [storedUserId]);
+
+  const loadInitialWorkspace = async () => {
+    try {
+      const profileRes = await fetch(`${API_BASE_URL}/profile/${storedUserId}`);
+      if (profileRes.ok) {
+        const profileData = await profileRes.ok ? await profileRes.json() : null;
+        setProfileMetrics(profileData);
+      }
+      
+      const sessionsRes = await fetch(`${API_BASE_URL}/api/sessions/${storedUserId}`);
+      if (sessionsRes.ok) {
+        const sessionsData = await sessionsRes.json();
+        setSessions(sessionsData);
+        if (sessionsData.length > 0) {
+          setActiveSessionId(sessionsData[0].id);
+          loadChatHistory(sessionsData[0].id);
+        }
+      }
+    } catch (err) {
+      console.error("Workspace initialization mismatch:", err);
+    } finally {
+      setLoadingWorkspace(false);
+    }
+  };
+
+  const loadChatHistory = async (sessionId) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/history/${storedUserId}/sessions`);
+      if (res.ok) {
+        const history = await res.json();
+        const filtered = history.filter(item => item.session_id === sessionId).reverse();
+        
+        const reconstructed = [];
+        filtered.forEach(item => {
+          reconstructed.push({ sender: "user", text: item.user_prompt });
+          reconstructed.push({ 
+            sender: "ai", 
+            text: item.conversational_response, 
+            chart: item.chart_bool ? item.chart_data : null 
+          });
+        });
+        setMessages(reconstructed);
+      }
+    } catch (err) {
+      console.error("Failed to recover message threads:", err);
+    }
+  };
+
+  const handleCreateSession = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: storedUserId,
+          title: `Strategy Thread #${sessions.length + 1}`
+        })
+      });
+      if (res.ok) {
+        const newSession = await res.json();
+        setSessions([newSession, ...sessions]);
+        setActiveSessionId(newSession.session_id);
+        setMessages([]);
+      }
+    } catch (err) {
+      alert("Failed to initiate active chat session thread.");
+    }
+  };
+
+  const handleSendChat = async (e) => {
+    e.preventDefault();
+    if (!inputPrompt.trim() || sendingChat) return;
+
+    let targetSessionId = activeSessionId;
+    if (!targetSessionId) {
+      alert("Please initialize or select a Strategy Thread on the left panel first.");
+      return;
+    }
+
+    const userMessage = inputPrompt.trim();
+    setMessages(prev => [...prev, { sender: "user", text: userMessage }]);
+    setInputPrompt("");
+    setSendingChat(true);
+
+    const fallbackSalary = profileMetrics?.monthly_income || 0;
+    const fallbackDebt = profileMetrics?.monthly_expenses || 0;
+    const fallbackSurplus = profileMetrics?.savings_goal || 0;
+
+    try {
+      const chatRes = await fetch(`${API_BASE_URL}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: userMessage,
+          salary: fallbackSalary,
+          debt: fallbackDebt,
+          surplus: fallbackSurplus,
+          session_id: targetSessionId
+        })
+      });
+
+      if (!chatRes.ok) throw new Error("Chat routing dropped");
+      const chatData = await chatRes.json();
+
+      setMessages(prev => [...prev, { 
+        sender: "ai", 
+        text: chatData.strategy,
+        chart: chatData.chart_data 
+      }]);
+
+      await fetch(`${API_BASE_URL}/profile/${storedUserId}/insights`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_prompt: userMessage,
+          session_id: targetSessionId,
+          conversational_response: chatData.strategy,
+          chart_data: chatData.chart_data
+        })
+      });
+
+    } catch (err) {
+      setMessages(prev => [...prev, { sender: "ai", text: "Network connection breakdown. Ensure server endpoints are available." }]);
+    } finally {
+      setSendingChat(false);
+    }
+  };
+
+  if (loadingWorkspace) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
+      {/* SIDEBAR */}
+      <div className="w-full md:w-64 bg-slate-900 border-r border-slate-800 p-4 flex flex-col justify-between">
+        <div>
+          <button 
+            onClick={handleCreateSession}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-2.5 px-4 rounded-xl mb-6 transition-colors shadow-lg shadow-emerald-900/20"
+          >
+            + New Strategy Thread
+          </button>
+          
+          <h3 className="text-xs font-semibold uppercase text-slate-500 tracking-wider mb-3 px-2">Active Frameworks</h3>
+          <div className="space-y-1 overflow-y-auto max-h-[50svh]">
+            {sessions.map((s) => (
+              <button
+                key={s.id || s.session_id}
+                onClick={() => {
+                  const id = s.id || s.session_id;
+                  setActiveSessionId(id);
+                  loadChatHistory(id);
+                }}
+                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  activeSessionId === (s.id || s.session_id) ? "bg-slate-800 text-emerald-400 border border-slate-700" : "text-slate-400 hover:bg-slate-850 hover:text-slate-200"
+                }`}
+              >
+                📁 {s.title}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {profileMetrics && (
+          <div className="bg-slate-950/50 border border-slate-850 rounded-xl p-3.5 text-xs text-slate-400 space-y-2 mt-4">
+            <p className="font-semibold text-slate-300">📊 Tracked Core Parameters</p>
+            <p>Income: <span className="text-slate-200">₹{profileMetrics.monthly_income}</span></p>
+            <p>Expenses: <span className="text-slate-200">₹{profileMetrics.monthly_expenses}</span></p>
+            <p>Goal: <span className="text-slate-200">₹{profileMetrics.savings_goal}</span></p>
+          </div>
+        )}
+      </div>
+
+      {/* CHAT INTERFACE AREA */}
+      <div className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden">
+        <div className="border-b border-slate-800 p-4 bg-slate-900/50 backdrop-blur-sm">
+          <h2 className="text-lg font-bold tracking-tight text-emerald-400 flex items-center gap-2">
+            🤖 Integrated AI Coaching Workspace
+          </h2>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2">
+              <p className="text-xl font-medium text-slate-400">Your AI Engine is Warm and Ready</p>
+              <p className="text-sm max-w-sm text-center text-slate-500">
+                Ask specific strategic milestones, asset planning questions, loan models, or legal shield metrics!
+              </p>
+            </div>
+          ) : (
+            messages.map((m, idx) => (
+              <div key={idx} className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-xl rounded-2xl p-4 shadow-xl leading-relaxed whitespace-pre-wrap ${
+                  m.sender === "user" ? "bg-emerald-600 text-slate-950 font-medium" : "bg-slate-900 border border-slate-800 text-slate-200"
+                }`}>
+                  {m.text}
+
+                  {m.chart && m.chart.values && (
+                    <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1.5 bg-slate-950/40 p-2.5 rounded-lg">
+                      <p className="font-bold text-emerald-400 uppercase tracking-wider">⚡ Dynamic Distribution Matrix Generated:</p>
+                      {m.chart.labels?.map((lbl, i) => (
+                        <p key={i}>• {lbl}: <span className="text-slate-200 font-semibold">₹{m.chart.values[i]?.toLocaleString()}</span></p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* PROMPT ACTION PANEL */}
+        <form onSubmit={handleSendChat} className="p-4 border-t border-slate-800 bg-slate-900/20 flex gap-3">
+          <input
+            type="text"
+            required
+            value={inputPrompt}
+            onChange={(e) => setInputPrompt(e.target.value)}
+            disabled={sendingChat}
+            placeholder={activeSessionId ? "Type a financial query (e.g. 'Buy a car for 5 lakh in 10 months')" : "Initialize a thread on the sidebar to chat..."}
+            className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors disabled:opacity-40"
+          />
+          <button
+            type="submit"
+            disabled={sendingChat || !activeSessionId}
+            className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-slate-950 disabled:text-slate-600 font-bold px-6 rounded-xl transition-colors shadow-lg"
+          >
+            {sendingChat ? "Analyzing..." : "Ask"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

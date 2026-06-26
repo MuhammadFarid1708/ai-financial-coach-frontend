@@ -1,26 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import AuthPage from './components/AuthPage';
 import FinancialCoach from './components/FinancialCoach';
+import Dashboard from './components/Dashboard';
 
 export default function App() {
   const [userSessionId, setUserSessionId] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [workspaceView, setWorkspaceView] = useState("profile-setup");
 
   useEffect(() => {
-    // FIX: Changed 'userId' to 'user_id' to perfectly match AuthPage local storage keys
     const savedUserId = localStorage.getItem('user_id');
     const token = localStorage.getItem('token');
     
     if (savedUserId && token) {
       setUserSessionId(savedUserId);
+      setWorkspaceView("dashboard"); // Skip setup wizard if session token is already valid
     }
     setCheckingAuth(false);
   }, []);
 
   const handleLoginSuccess = () => {
-    // FIX: Pull directly from the fresh stored user_id set during authentication
     const savedUserId = localStorage.getItem('user_id');
     setUserSessionId(savedUserId);
+    setWorkspaceView("profile-setup"); // Take new or freshly cleared logins to profile configuration setup wizard
+  };
+
+  const handleProfileComplete = () => {
+    setWorkspaceView("dashboard");
   };
 
   if (checkingAuth) {
@@ -33,10 +39,12 @@ export default function App() {
 
   return (
     <>
-      {userSessionId ? (
-        <FinancialCoach />
-      ) : (
+      {!userSessionId ? (
         <AuthPage onLoginSuccess={handleLoginSuccess} />
+      ) : workspaceView === "profile-setup" ? (
+        <FinancialCoach onProfileSetupComplete={handleProfileComplete} />
+      ) : (
+        <Dashboard />
       )}
     </>
   );
