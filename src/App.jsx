@@ -7,8 +7,8 @@ export default function App() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    // Check if user has an existing saved active login token
-    const savedUserId = localStorage.getItem('userId');
+    // FIX: Changed 'userId' to 'user_id' to perfectly match AuthPage local storage keys
+    const savedUserId = localStorage.getItem('user_id');
     const token = localStorage.getItem('token');
     
     if (savedUserId && token) {
@@ -17,8 +17,10 @@ export default function App() {
     setCheckingAuth(false);
   }, []);
 
-  const handleLoginSuccess = (userId) => {
-    setUserSessionId(userId);
+  const handleLoginSuccess = () => {
+    // FIX: Pull directly from the fresh stored user_id set during authentication
+    const savedUserId = localStorage.getItem('user_id');
+    setUserSessionId(savedUserId);
   };
 
   if (checkingAuth) {
